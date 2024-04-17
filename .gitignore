@@ -1,5 +1,6 @@
 # compiled output
 /dist
+/nogit
 /node_modules
 /build
 

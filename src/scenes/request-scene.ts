@@ -1,4 +1,5 @@
 import axios from 'axios';
+import csvToJson from 'convert-csv-to-json';
 import * as fs from 'fs';
 import { Ctx, Scene, SceneEnter } from 'nestjs-telegraf';
 import { Markup } from 'telegraf';
@@ -7,7 +8,6 @@ import * as xlsx from 'xlsx';
 import { BT_BACK, BT_RELOAD } from '../constants/button.constants';
 import { REQUEST_SCENE, START_MAIN_SCENE } from '../constants/scene.constants';
 import { ContextSceneType } from '../types/context.interface';
-import excelToJson = require('convert-excel-to-json');
 
 @Scene(REQUEST_SCENE)
 export class RequestScene {
@@ -78,26 +78,37 @@ export class RequestScene {
     const newMessage: Message.TextMessage = message;
     const filePath: string = ctx.scene.state.filePath;
     try {
-      //parsing Excel file to JSON
-      const excelResult = excelToJson({
-        sourceFile: filePath,
-        columnToKey: {
-          '*': '{{columnHeader}}',
-        },
+      const json = csvToJson.getJsonFromCsv(filePath);
+      const cleanInfo = json.map((el) => {
+        const text: Array<any> = el.data
+          .reverse()
+          .split(',', 2)
+          .map((el) => el.reverse());
+        return {
+          запрос: text[1],
+          частотность: text[0],
+        };
       });
-
-      if (!excelResult || !excelResult.Worksheet) {
-        throw new Error('Unable to parse Excel file or Worksheet is empty.');
-      }
+      // //parsing Excel file to JSON
+      // const excelResult = excelToJson({
+      //   sourceFile: filePath,
+      //   columnToKey: {
+      //     '*': '{{columnHeader}}',
+      //   },
+      // });
+      //
+      // if (!excelResult || !excelResult.Worksheet) {
+      //   throw new Error('Unable to parse Excel file or Worksheet is empty.');
+      // }
 
       //delete file after parsing
       this.deleteFile(filePath);
 
-      //cleaning and organizing useful data from JSON
-      const cleanInfo = excelResult.Worksheet.map((el) => ({
-        запрос: el['запрос'],
-        частотность: el['частотность'],
-      })).slice(1);
+      // //cleaning and organizing useful data from JSON
+      // const cleanInfo = excelResult.Worksheet.map((el) => ({
+      //   запрос: el['запрос'],
+      //   частотность: el['частотность'],
+      // })).slice(1);
 
       //make arr of encode urls
       const urls = [];
@@ -186,8 +197,8 @@ export class RequestScene {
         }
       } while (errorChecker === true && tryChecker < 5);
 
-      //delete file after sending
-      this.deleteFile('convertedJsontoExcel.xlsx');
+      // //delete file after sending
+      // this.deleteFile('convertedJsontoExcel.xlsx');
 
       //enter main scene
       await ctx.scene.enter(START_MAIN_SCENE, { ...ctx.scene.state });
