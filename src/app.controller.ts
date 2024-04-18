@@ -15,7 +15,7 @@ export class AppController {
   @Get('/well')
   async getHello(@Res() res: Response, @Body() body: any): Promise<any> {
     const path =
-      '/Users/markmay/WebstormProjects/fast-parser/telegram-api/requests 04.2024.csv';
+      '/Users/markmay/WebstormProjects/fast-parser/telegram-api/nogit/requests 04.2024.csv';
     res.send('Начало выполнения операции...');
     if (body !== undefined && body.isI === true) {
       this.appService.doMainprogram(path);

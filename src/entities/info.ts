@@ -1,5 +1,11 @@
 import { DateTime } from 'luxon';
-import { Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  BeforeUpdate,
+  Column,
+  Entity,
+  Index,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 
 @Entity()
 export class StaticEntity {
@@ -16,6 +22,8 @@ export class StaticEntity {
   public query: string;
   @Column()
   public particular: number;
+  @Column()
+  public updateAt: Date = DateTime.now().setZone('Europe/Moscow').toJSDate();
   @Column({ nullable: true })
   public '1': null | string;
   @Column({ nullable: true })
@@ -266,4 +274,9 @@ export class StaticEntity {
   public '124': null | string;
   @Column({ nullable: true })
   public '125': null | string;
+
+  @BeforeUpdate()
+  insertUpdated() {
+    this.updateAt = DateTime.now().setZone('Europe/Moscow').toJSDate();
+  }
 }
