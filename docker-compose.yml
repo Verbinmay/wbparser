@@ -1,0 +1,36 @@
+version: '3'
+services:
+  postgres:
+    image: postgres:latest
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: botwb
+      POSTGRES_USER: mark
+      POSTGRES_PASSWORD: ff
+    ports:
+      - "5558:5432"
+    networks:
+      - mynetwork
+  telegram-api:
+    build: .
+    ports:
+      - "3333:3333"
+    environment:
+      MAINPORT: 3333
+      DB_URL: jdbc:postgresql://localhost:5558/botwb
+      DB_USERNAME: mark
+      DB_PASSWORD: ff
+      DB_NAME: botwb
+      CON_DB: dev
+      DB_HOST: localhost
+      DB_PORT: '5558'
+
+networks:
+  mynetwork:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

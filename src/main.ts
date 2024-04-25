@@ -1,19 +1,16 @@
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-// import { getBotToken } from 'nestjs-telegraf';
 import { AppModule } from './app.module';
+import { Menu, rl } from './menu';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
-  // const bot = app.get(getBotToken());
-  // app.use(bot.webhookCallback('/telegram'));
-  // await bot.telegram.sendMessage(
-  //   424027533,
-  //   `hello from ${configService.get('DOMAIN')}`,
-  // );
-  await app.listen(configService.get('MAINPORT') || 3000);
+  await app.listen(configService.get('MAINPORT') || 3333);
+  const menu = app.get(Menu);
+  menu.showMenu();
+  rl.question('Ваш выбор: ', menu.mainHandleSelection);
 }
 
 try {

@@ -1,3 +1,0 @@
-export const START_MAIN_SCENE = 'START_MAIN_SCENE';
-export const UPLOAD_SCENE = 'UPLOAD_SCENE';
-export const REQUEST_SCENE = 'REQUEST_SCENE';

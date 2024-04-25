@@ -1,17 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
+import { log } from 'console';
 import csvToJson from 'convert-csv-to-json';
 import excelToJson from 'convert-excel-to-json';
 import * as fs from 'fs';
+import { createWriteStream } from 'fs';
+import { DateTime } from 'luxon';
+import { StaticEntity } from './entities/info';
 // import * as xlsx from 'xlsx';
 import { StaticRepository } from './entities/userRepo';
-import { StaticEntity } from './entities/info';
-import { DateTime } from 'luxon';
 import { PartClean } from './types/partClean';
 
 @Injectable()
 export class AppService {
   arrNum: string[] = ['4124', '94', '190', 'ошибка'];
+
   constructor(private readonly staticRepo: StaticRepository) {}
 
   getHello(): string {
@@ -32,23 +35,28 @@ export class AppService {
     } else {
       console.log('Неизвестный тип файла');
     }
+
     if (cleanInfo === undefined) {
       throw new Error('Не удалось прочитать файл');
     }
+
     console.log(cleanInfo[0], 'Пример первой записи');
 
     //make arr of encode urls
     for (const part of cleanInfo) {
       const specialRequest: string = part['запрос'];
-      //filtred more 1000
+
+      //filtered more 1000
       if (part['частотность'] < 1000) {
         continue;
       }
+
       const isExist: StaticEntity | null =
         await this.staticRepo.findOneSt(specialRequest);
+
       if (isExist !== null) {
         if (
-          isExist.createdAt >
+          isExist.updateAt >
             DateTime.now()
               .minus({ days: 3 })
               .setZone('Europe/Moscow')
@@ -65,7 +73,7 @@ export class AppService {
       part.url = encodeURI(url);
     }
     cleanInfo = cleanInfo.filter((info) => 'url' in info);
-    await this.reqursiEvent(cleanInfo);
+    await this.requiresEvent(cleanInfo);
 
     //convert JSON to Excel and save
     // const workBook = xlsx.utils.book_new();
@@ -75,7 +83,8 @@ export class AppService {
 
     console.log('Программа завершена');
   }
-  private async reqursiEvent(cleanInfo: Array<PartClean>) {
+
+  private async requiresEvent(cleanInfo: Array<PartClean>) {
     let partOfCleanInfo: Array<PartClean>;
     try {
       //make requests to wb
@@ -88,15 +97,15 @@ export class AppService {
         let i: number = 0;
 
         swimArray = await this.makeOperation(swimArray);
+
         while (swimArray.length > 0 && i < 5) {
           swimArray = await this.makeOperationWithError(swimArray);
           i++;
         }
       } while (cleanInfo.length > 0);
     } catch (e) {
-      //TODO sistem error
       await this.makeOperationWithError(partOfCleanInfo);
-      this.reqursiEvent(cleanInfo);
+      await this.requiresEvent(cleanInfo);
       console.log(e, 'allSettled error');
     }
   }
@@ -134,6 +143,7 @@ export class AppService {
     }
     return newStaticEntity;
   }
+
   async makeOperationWithError(partOfCleanInfo: Array<PartClean>) {
     const urls: Array<string> = partOfCleanInfo.map((el) => el.url);
     const filteredResult = await this.makeRequestByOne(urls);
@@ -142,6 +152,7 @@ export class AppService {
     //processing data
     return await this.createCheckSaveEntity(partOfCleanInfo, finishResult);
   }
+
   async makeOperation(
     partOfCleanInfo: Array<PartClean>,
   ): Promise<Array<PartClean>> {
@@ -234,6 +245,7 @@ export class AppService {
       console.error('Ошибка при удалении файла:', error);
     }
   }
+
   // maybe in speed request we create a problem
   async makeRequest(part: Array<string>) {
     let filteredResult: Array<any>;
@@ -258,6 +270,7 @@ export class AppService {
     filteredResult = filteredResult.map((result) => result.value.data);
     return filteredResult;
   }
+
   async makeRequestByOne(part: Array<string>) {
     let result: any;
     const filteredResult: Array<any> = [];
@@ -301,5 +314,41 @@ export class AppService {
       }
     }
     return data;
+  }
+
+  async saveDocs() {
+    const airports = await this.staticRepo.findCountSt();
+    const partNum = Math.ceil(airports / 4);
+    let indexBook = 1;
+    let fileStream = createWriteStream(`airports${indexBook}.csv`); // Создаем поток для записи в файл
+    for (let i = 0; i < airports; i += 100) {
+      if (i >= partNum * indexBook) {
+        fileStream.end();
+        indexBook++;
+        fileStream = createWriteStream(`airports${indexBook}.csv`); // Создаем поток для записи в файл
+      }
+      const result = await this.staticRepo.findSt(i, 100);
+      log(`${i} из ${airports}`);
+      if (result === null || result === undefined || result.length === 0) {
+        break;
+      }
+
+      for (const item of result) {
+        let text = `${item.query};${item.particular}`;
+        for (let i = 1; i < 125; i++) {
+          const indexText = i.toString();
+          if (item[indexText] === null) {
+            text += `;`;
+          } else {
+            text += `;${item[indexText]}`;
+          }
+        }
+        text += `\n`;
+
+        fileStream.write(text); //  CSV
+      }
+    }
+    fileStream.end();
+    log('Запись завершена');
   }
 }

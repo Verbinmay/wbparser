@@ -1,18 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-// import { TelegrafModule } from 'nestjs-telegraf';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import * as process from 'process';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-// import { sessionMiddleware } from './middleware/session.middleware';
-import { MainScene } from './scenes/main-scene';
-import { RequestScene } from './scenes/request-scene';
-import { UploadScene } from './scenes/upload-scene';
-import { TelegramUpdate } from './telegramUpdates';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { StaticEntity } from './entities/info';
 import { StaticRepository } from './entities/userRepo';
+import { Menu } from './menu';
 
 const entities = [StaticEntity];
+console.log(process.env);
 
 @Module({
   imports: [
@@ -35,29 +32,8 @@ const entities = [StaticEntity];
       inject: [ConfigService],
     }),
     TypeOrmModule.forFeature([...entities]),
-    // TelegrafModule.forRootAsync({
-    //   imports: [ConfigModule],
-    //   inject: [ConfigService],
-    //   useFactory: async (configService: ConfigService) => ({
-    //     token: configService.get<string>('TOKEN'),
-    //     launchOptions: {
-    //       webhook: {
-    //         domain: configService.get('DOMAIN'),
-    //         hookPath: '/telegram',
-    //       },
-    //     },
-    //     middlewares: [sessionMiddleware],
-    //   }),
-    // }),
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    TelegramUpdate,
-    MainScene,
-    UploadScene,
-    RequestScene,
-    StaticRepository,
-  ],
+  providers: [AppService, StaticRepository, Menu],
 })
 export class AppModule {}
