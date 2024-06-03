@@ -1,12 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import readline from 'readline';
 import { AppService } from './app.service';
 import { StaticRepository } from './entities/userRepo';
+import { rl } from './main';
+
 // Создание интерфейса ввода/вывода
-export const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
 
 @Injectable()
 export class Menu {
@@ -20,7 +17,7 @@ export class Menu {
   }
 
   showMenu() {
-    console.log('Выберите вариант:');
+    console.log('Выберите вариант, пожалуйста:');
     console.log('1. Ввести путь к файлу');
     console.log('2. Стереть базу');
     console.log('3. Сохранить базу в файл');
@@ -39,6 +36,9 @@ export class Menu {
         break;
       case '3':
         await this.appService.saveDocs();
+        console.log('База сохранена');
+        this.showMenu();
+        rl.question('Ваш выбор: ', this.mainHandleSelection);
         break;
       case '4':
         console.log('Выход...');
@@ -46,6 +46,8 @@ export class Menu {
         return;
       default:
         console.log('Неправильный выбор, попробуйте снова.');
+        this.showMenu();
+        rl.question('Ваш выбор: ', this.mainHandleSelection);
     }
   }
 
@@ -56,8 +58,9 @@ export class Menu {
   async firstHandleSelection(choice: string) {
     if (choice.trim() !== 'N') {
       try {
-        await this.appService.doMainprogram(choice.trim());
+        await this.appService.doMainProgram(choice.trim());
       } catch (e) {
+        console.log(e);
         console.log('Ошибка ввода пути к файлу');
       }
     }

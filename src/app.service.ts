@@ -6,14 +6,22 @@ import excelToJson from 'convert-excel-to-json';
 import * as fs from 'fs';
 import { createWriteStream } from 'fs';
 import { DateTime } from 'luxon';
+import * as path from 'path';
 import { StaticEntity } from './entities/info';
-// import * as xlsx from 'xlsx';
 import { StaticRepository } from './entities/userRepo';
 import { PartClean } from './types/partClean';
 
 @Injectable()
 export class AppService {
-  arrNum: string[] = ['4124', '94', '190', 'ошибка'];
+  arrNum: string[] = [
+    '4124 b',
+    '4124 c',
+    '94 b',
+    '94 c',
+    '190 b',
+    '190 c',
+    'ошибка',
+  ];
 
   constructor(private readonly staticRepo: StaticRepository) {}
 
@@ -21,7 +29,7 @@ export class AppService {
     return 'Hello World!';
   }
 
-  async doMainprogram(filePath: string) {
+  async doMainProgram(filePath: string) {
     console.log('Начало выполнения операции...');
     // Получить расширение файла
     const info: string = filePath.split('.').pop().toLowerCase();
@@ -69,17 +77,11 @@ export class AppService {
           part.needToUpdate = true;
         }
       }
-      const url = `https://search.wb.ru/exactmatch/ru/common/v5/search?ab_testing=false&appType=1&curr=rub&dest=-1257786&query=${specialRequest}&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false`;
+      const url = `https://search.wb.ru/exactmatch/ru/common/v5/search?ab_testing=false&appType=1&curr=rub&dest=-1257786&query=${specialRequest}&regions=80&resultset=catalog&sort=popular&spp=30&suppressSpellcheck=false`;
       part.url = encodeURI(url);
     }
     cleanInfo = cleanInfo.filter((info) => 'url' in info);
     await this.requiresEvent(cleanInfo);
-
-    //convert JSON to Excel and save
-    // const workBook = xlsx.utils.book_new();
-    // const workSheet = xlsx.utils.json_to_sheet(arrForTable);
-    // xlsx.utils.book_append_sheet(workBook, workSheet);
-    // xlsx.writeFile(workBook, 'convertedJsontoExcel.xlsx');
 
     console.log('Программа завершена');
   }
@@ -183,8 +185,8 @@ export class AppService {
       }
       //save to DB
       console.log(newStaticEntity['1'], 'я сохраняю');
-      const rsaveDb = await this.staticRepo.updateSt(newStaticEntity);
-      if (rsaveDb === null) {
+      const saveDb = await this.staticRepo.updateSt(newStaticEntity);
+      if (saveDb === null) {
         console.log('Ошибка при сохранении в базу данных');
       }
     }
@@ -219,10 +221,14 @@ export class AppService {
   }
 
   convertCVSToSpecialJson(filePath: string): Array<PartClean> {
-    const json: Array<{ data: string }> = csvToJson.getJsonFromCsv(filePath);
+    const json: Array<{ data: string }> = csvToJson
+      .fieldDelimiter('\n')
+      .getJsonFromCsv(filePath);
+    console.log(json);
+
     return json.map((el) => {
       const text: string = el.data.replace(/"/g, '');
-      const lastCommaIndex = text.lastIndexOf(',');
+      const lastCommaIndex = text.lastIndexOf(';');
 
       const query: string = text.substring(0, lastCommaIndex);
       const number1: number = +text.substring(lastCommaIndex + 1);
@@ -234,23 +240,11 @@ export class AppService {
     });
   }
 
-  deleteFile(filePath: string) {
-    try {
-      fs.unlink(filePath, (err) => {
-        if (err) throw err;
-        console.log('path/file.txt was deleted');
-      });
-      console.log('Файл успешно удален:', filePath);
-    } catch (error) {
-      console.error('Ошибка при удалении файла:', error);
-    }
-  }
-
   // maybe in speed request we create a problem
   async makeRequest(part: Array<string>) {
     let filteredResult: Array<any>;
-
-    const promises = part.map((part) => axios.get(part));
+    const promises = part.map((part) =>
+      axios.get(part))
 
     //more time for requests
     const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -298,11 +292,14 @@ export class AppService {
       ) {
         try {
           data = array[ii].data.products
-            .filter((el) => 'cpm' in el.log && el.log.tp === 'b')
+            // .filter((el) => 'cpm' in el.log && el.log.tp === 'b')
+            .filter((el) => 'cpm' in el.log)
             .map((el) => {
+              const typeAdd = el.log.tp;
+
               return {
                 position: el.log.promoPosition,
-                cpm: el.log.cpm,
+                cpm: `${el.log.cpm} ${typeAdd}`,
               };
             });
         } catch (e) {
@@ -319,24 +316,32 @@ export class AppService {
   async saveDocs() {
     const airports = await this.staticRepo.findCountSt();
     const partNum = Math.ceil(airports / 4);
+    console.log('Всего записей: ', airports);
+    console.log('часть равна: ', partNum);
     let indexBook = 1;
-    let fileStream = createWriteStream(`airports${indexBook}.csv`); // Создаем поток для записи в файл
+    const dirPath = path.join('saved');
+    let fullPath = path.join('saved', `airports${indexBook}.csv`);
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+    let fileStream = createWriteStream(fullPath);
     for (let i = 0; i < airports; i += 100) {
       if (i >= partNum * indexBook) {
         fileStream.end();
         indexBook++;
-        fileStream = createWriteStream(`airports${indexBook}.csv`); // Создаем поток для записи в файл
+        fullPath = path.join('saved', `airports${indexBook}.csv`);
+        fileStream = createWriteStream(fullPath);
       }
       const result = await this.staticRepo.findSt(i, 100);
-      log(`${i} из ${airports}`);
+      console.log(`${i} из ${airports}`);
       if (result === null || result === undefined || result.length === 0) {
         break;
       }
 
       for (const item of result) {
         let text = `${item.query};${item.particular}`;
-        for (let i = 1; i < 125; i++) {
-          const indexText = i.toString();
+        for (let ii = 1; ii < 125; ii++) {
+          const indexText = ii.toString();
           if (item[indexText] === null) {
             text += `;`;
           } else {

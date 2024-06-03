@@ -4,18 +4,17 @@ services:
     image: postgres:latest
     restart: always
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_pub:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: botwb
       POSTGRES_USER: mark
       POSTGRES_PASSWORD: ff
   api:
+    container_name: my_custom_name2
     depends_on:
       - db
-    build: .
-    volumes:
-      - /telegram-api/node_modules
-      - ./src:/telegram-api/src
+    image: verbinmay/wbparser-prod:latest
+    restart: always
     stdin_open: true
     tty: true
     ports:
@@ -29,7 +28,6 @@ services:
       DB_HOST: db
       DB_PORT: '5432'
 
-
 volumes:
-  postgres_data:
+  postgres_data_pub:
     driver: local
